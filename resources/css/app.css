@@ -1,0 +1,86 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes pulseGlow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+@keyframes slideDown {
+    0% { transform: translateY(-10%); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+@theme {
+    --animation-float: float 3s ease-in-out infinite;
+    --animation-pulse-glow: pulseGlow 2s ease-in-out infinite;
+    --animation-slide-down: slideDown 0.3s ease-out;
+}
+
+/* Services Scroll Animation Styles */
+.services-scroll-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+}
+
+.services-scroll-track {
+    display: flex;
+    gap: 1rem;
+    will-change: transform;
+    transform: translateX(0);
+    width: max-content;
+}
+
+.service-item {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.service-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Smooth scrolling for better performance */
+.services-scroll-container {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+}
+
+/* Fallback for no JavaScript */
+.no-js .services-scroll-track {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.no-js .services-scroll-track::-webkit-scrollbar {
+    display: none;
+}
+
+/* Animation performance optimizations */
+.services-scroll-track {
+    backface-visibility: hidden;
+    perspective: 1000px;
+    transform-style: preserve-3d;
+}
+
+.service-item img {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
