@@ -220,17 +220,122 @@ class ProductController extends Controller
 
             $prices = $digiflazzService->checkPrice();
             
-            if (!$prices || !isset($prices['data'])) {
+            if (!$prices) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Gagal mengambil data dari Digiflazz.'
                 ], 400);
             }
 
+            // Handle different response structures from Digiflazz
+            $productsData = [];
+            if (isset($prices['data'])) {
+                $productsData = $prices['data'];
+            } elseif (isset($prices['pricelist'])) {
+                $productsData = $prices['pricelist'];
+            } elseif (is_array($prices)) {
+                $productsData = $prices;
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Format data dari Digiflazz tidak valid.'
+                ], 400);
+            }
+
+            if (empty($productsData)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada data produk dari Digiflazz.'
+                ], 400);
+            }
+
+            $processedCount = 0;
+            $createdCount = 0;
+            $updatedCount = 0;
+            $errorCount = 0;
+
+            foreach ($productsData as $item) {
+                try {
+                    // Handle different field names from Digiflazz
+                    $sku = $item['buyer_sku_code'] ?? $item['sku'] ?? $item['code'] ?? null;
+                    $productName = $item['product_name'] ?? $item['name'] ?? $item['title'] ?? null;
+                    $price = $item['price'] ?? $item['harga'] ?? 0;
+                    
+                    // Skip if required fields are missing
+                    if (empty($sku) || empty($productName)) {
+                        continue;
+                    }
+
+                    // Check if product already exists
+                    $existingProduct = Product::where('sku', $sku)->first();
+                    
+                    if ($existingProduct) {
+                        // Update existing product with new price
+                        $existingProduct->update([
+                            'original_price' => $price,
+                            'price_tamu' => $price + $existingProduct->margin_tamu,
+                            'price_member' => $price + $existingProduct->margin_member,
+                            'last_price_update' => now()
+                        ]);
+                        $updatedCount++;
+                    } else {
+                        // Try to find matching game based on product name
+                        $gameId = $this->findMatchingGame($productName);
+                        
+                        // Skip if no game found
+                        if ($gameId === null) {
+                            Log::warning('No matching game found for product', [
+                                'sku' => $sku,
+                                'name' => $productName
+                            ]);
+                            $errorCount++;
+                            continue;
+                        }
+                        
+                        // Create new product
+                        $product = new Product();
+                        $product->name = $productName;
+                        $product->sku = $sku;
+                        $product->game_id = $gameId;
+                        $product->provider = 'Digiflazz';
+                        $product->original_price = $price;
+                        $product->price_tamu = $price; // Default margin 0
+                        $product->price_member = $price; // Default margin 0
+                        $product->margin_tamu = 0;
+                        $product->margin_member = 0;
+                        $product->is_active = true; // Set active by default
+                        $product->auto_update_price = true;
+                        $product->save();
+                        $createdCount++;
+                    }
+                    
+                    $processedCount++;
+                    
+                } catch (\Exception $e) {
+                    $errorCount++;
+                    Log::error('Error processing Digiflazz product', [
+                        'sku' => $sku ?? 'unknown',
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            $message = "Berhasil memproses {$processedCount} produk dari Digiflazz. ";
+            $message .= "Dibuat: {$createdCount}, Diupdate: {$updatedCount}";
+            
+            if ($errorCount > 0) {
+                $message .= ", Error: {$errorCount}";
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Data berhasil diambil dari Digiflazz',
-                'data' => $prices['data']
+                'message' => $message,
+                'data' => [
+                    'processed' => $processedCount,
+                    'created' => $createdCount,
+                    'updated' => $updatedCount,
+                    'errors' => $errorCount
+                ]
             ]);
 
         } catch (\Exception $e) {
@@ -277,17 +382,44 @@ class ProductController extends Controller
             // Get price list from Digiflazz
             $prices = $digiflazzService->checkPrice();
             
-            if (!$prices || !isset($prices['data'])) {
+            if (!$prices) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Gagal mengambil data harga dari Digiflazz.'
                 ], 400);
             }
 
+            // Handle different response structures from Digiflazz
+            $productsData = [];
+            if (isset($prices['data'])) {
+                $productsData = $prices['data'];
+            } elseif (isset($prices['pricelist'])) {
+                $productsData = $prices['pricelist'];
+            } elseif (is_array($prices)) {
+                $productsData = $prices;
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Format data dari Digiflazz tidak valid.'
+                ], 400);
+            }
+
+            if (empty($productsData)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada data produk dari Digiflazz.'
+                ], 400);
+            }
+
             // Create price mapping
             $priceMap = [];
-            foreach ($prices['data'] as $item) {
-                $priceMap[$item['buyer_sku_code']] = $item['price'];
+            foreach ($productsData as $item) {
+                $sku = $item['buyer_sku_code'] ?? $item['sku'] ?? $item['code'] ?? null;
+                $price = $item['price'] ?? $item['harga'] ?? null;
+                
+                if ($sku && $price !== null) {
+                    $priceMap[$sku] = $price;
+                }
             }
 
             $updatedCount = 0;
@@ -346,6 +478,51 @@ class ProductController extends Controller
                 'success' => false,
                 'message' => 'Gagal update harga produk: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Find matching game based on product name
+     */
+    private function findMatchingGame($productName)
+    {
+        try {
+            // Get all active games
+            $games = Game::active()->get();
+            
+            // Try to match product name with game names
+            foreach ($games as $game) {
+                // Check if game name appears in product name (case insensitive)
+                if (stripos($productName, $game->name) !== false) {
+                    return $game->id;
+                }
+            }
+            
+            // If no match found, use the first available game
+            $defaultGame = Game::active()->first();
+            
+            if ($defaultGame) {
+                return $defaultGame->id;
+            }
+            
+            // If no games exist at all, create a default game
+            $defaultGame = Game::create([
+                'name' => 'Default Game',
+                'slug' => 'default-game-' . time(),
+                'description' => 'Default game for imported products from Digiflazz',
+                'is_active' => true
+            ]);
+            
+            return $defaultGame->id;
+            
+        } catch (\Exception $e) {
+            Log::error('Error in findMatchingGame', [
+                'product_name' => $productName,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Return null if everything fails
+            return null;
         }
     }
 }

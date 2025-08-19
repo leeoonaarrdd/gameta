@@ -141,10 +141,16 @@ class TripayService
 
 
             
-            $response = Http::timeout(30)->withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json'
-            ])->post($this->baseUrl . 'transaction/create', $data);
+            $response = Http::timeout(30)
+                ->withOptions([
+                    'curl' => [
+                        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // Force IPv4
+                    ]
+                ])
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json'
+                ])->post($this->baseUrl . 'transaction/create', $data);
 
             if ($response->successful()) {
                 $result = $response->json();
@@ -197,12 +203,18 @@ class TripayService
                 ];
             }
 
-            $response = Http::timeout(30)->withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json'
-            ])->get($this->baseUrl . 'transaction/detail', [
-                'reference' => $reference
-            ]);
+            $response = Http::timeout(30)
+                ->withOptions([
+                    'curl' => [
+                        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // Force IPv4
+                    ]
+                ])
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json'
+                ])->get($this->baseUrl . 'transaction/detail', [
+                    'reference' => $reference
+                ]);
 
             if ($response->successful()) {
                 $result = $response->json();
@@ -254,8 +266,27 @@ class TripayService
             }
 
             // Validate required callback data
-            if (empty($data['merchant_ref']) || empty($data['amount'])) {
-                Log::error('Tripay Callback: Missing required callback data');
+            if (!isset($data['merchant_ref'])) {
+                Log::error('Tripay Callback: Missing merchant_ref');
+                return false;
+            }
+            
+            // Handle amount field - Tripay sends total_amount or amount_received
+            $amount = null;
+            if (isset($data['total_amount'])) {
+                $amount = $data['total_amount'];
+            } elseif (isset($data['amount_received'])) {
+                $amount = $data['amount_received'];
+            } elseif (isset($data['amount'])) {
+                $amount = $data['amount'];
+            }
+            
+            if ($amount === null || !is_numeric($amount)) {
+                Log::error('Tripay Callback: Missing or invalid amount field', [
+                    'total_amount' => $data['total_amount'] ?? null,
+                    'amount_received' => $data['amount_received'] ?? null,
+                    'amount' => $data['amount'] ?? null
+                ]);
                 return false;
             }
 
@@ -297,7 +328,14 @@ class TripayService
             // Use hash_equals for timing attack protection
             $isValid = hash_equals($expectedSignature, $signature);
 
-
+            // Log signature verification details for debugging
+            Log::info('Tripay Callback: Signature verification details', [
+                'raw_json_data' => $rawJsonData,
+                'received_signature' => $signature,
+                'expected_signature' => $expectedSignature,
+                'is_valid' => $isValid,
+                'private_key_length' => strlen($this->privateKey)
+            ]);
 
             return $isValid;
         } catch (\Exception $e) {
@@ -319,10 +357,16 @@ class TripayService
                 ];
             }
 
-            $response = Http::timeout(30)->withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json'
-            ])->get($this->baseUrl . 'merchant/payment-channel');
+            $response = Http::timeout(30)
+                ->withOptions([
+                    'curl' => [
+                        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // Force IPv4
+                    ]
+                ])
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json'
+                ])->get($this->baseUrl . 'merchant/payment-channel');
 
             if ($response->successful()) {
                 $result = $response->json();
@@ -493,10 +537,16 @@ class TripayService
                 ];
             }
 
-            $response = Http::timeout(10)->withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json'
-            ])->get($this->baseUrl . 'merchant/payment-channel');
+            $response = Http::timeout(10)
+                ->withOptions([
+                    'curl' => [
+                        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // Force IPv4
+                    ]
+                ])
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json'
+                ])->get($this->baseUrl . 'merchant/payment-channel');
 
             if ($response->successful()) {
                 return [

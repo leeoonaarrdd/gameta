@@ -14,7 +14,7 @@
                     class="w-full h-full object-cover"
                     style="mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 60%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 60%, transparent 100%);"
                 />
-            </div>
+            </div>  
         @endif
         
         <!-- Game Information Section - Overlapping Banner -->

@@ -58,15 +58,38 @@ class UpdateProductPrices extends Command
         $this->info('Mengambil data harga dari Digiflazz...');
         $prices = $digiflazzService->checkPrice();
         
-        if (!$prices || !isset($prices['data'])) {
+        if (!$prices) {
             $this->error('Gagal mengambil data harga dari Digiflazz.');
+            return 1;
+        }
+
+        // Handle different response structures from Digiflazz
+        $productsData = [];
+        if (isset($prices['data'])) {
+            $productsData = $prices['data'];
+        } elseif (isset($prices['pricelist'])) {
+            $productsData = $prices['pricelist'];
+        } elseif (is_array($prices)) {
+            $productsData = $prices;
+        } else {
+            $this->error('Format data dari Digiflazz tidak valid.');
+            return 1;
+        }
+
+        if (empty($productsData)) {
+            $this->error('Tidak ada data produk dari Digiflazz.');
             return 1;
         }
 
         // Create price mapping
         $priceMap = [];
-        foreach ($prices['data'] as $item) {
-            $priceMap[$item['buyer_sku_code']] = $item['price'];
+        foreach ($productsData as $item) {
+            $sku = $item['buyer_sku_code'] ?? $item['sku'] ?? $item['code'] ?? null;
+            $price = $item['price'] ?? $item['harga'] ?? null;
+            
+            if ($sku && $price !== null) {
+                $priceMap[$sku] = $price;
+            }
         }
 
         $updatedCount = 0;

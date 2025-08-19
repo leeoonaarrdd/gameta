@@ -67,6 +67,7 @@ Route::get('/checkout/{gameSlug}', [App\Http\Controllers\CheckoutController::cla
 Route::post('/checkout/process', [App\Http\Controllers\CheckoutController::class, 'process'])->name('checkout.process');
 Route::post('/checkout/check-nickname', [App\Http\Controllers\CheckoutController::class, 'checkNickname'])->name('checkout.check-nickname');
 Route::get('/checkout/payment/{order_id}', [App\Http\Controllers\CheckoutController::class, 'showPayment'])->name('checkout.payment');
+Route::post('/checkout/confirm-manual-payment/{order_id}', [App\Http\Controllers\CheckoutController::class, 'confirmManualPayment'])->name('checkout.confirm-manual-payment');
 Route::post('/checkout/update-status', [App\Http\Controllers\CheckoutController::class, 'updatePurchaseStatus'])->name('checkout.update-status');
 Route::get('/checkout/purchase/{orderId}', [App\Http\Controllers\CheckoutController::class, 'getPurchaseDetails'])->name('checkout.purchase-details');
 
@@ -279,6 +280,73 @@ Route::post('/categories/update-order', [App\Http\Controllers\CategoryController
         'destroy' => 'admin.topups.destroy',
     ]);
     Route::post('/topups/config', [App\Http\Controllers\TopupController::class, 'updateConfig'])->name('admin.topups.config');
-Route::post('/topups/{topup}/accept', [App\Http\Controllers\TopupController::class, 'acceptTopup'])->name('admin.topups.accept');
+    Route::post('/topups/{topup}/accept', [App\Http\Controllers\TopupController::class, 'acceptTopup'])->name('admin.topups.accept');
+    
+    // Digiflazz Test Routes (Integrated with Configuration)
+    Route::get('/digiflazz-test/connection', function() {
+        $digiflazzService = app(\App\Services\DigiflazzService::class);
+        return response()->json($digiflazzService->testConnection());
+    })->name('admin.digiflazz-test.connection');
+    
+    Route::get('/digiflazz-test/balance', function() {
+        $digiflazzService = app(\App\Services\DigiflazzService::class);
+        $balance = $digiflazzService->checkBalance();
+        if ($balance && isset($balance['data'])) {
+            return response()->json(['success' => true, 'message' => 'Saldo berhasil dicek', 'data' => $balance]);
+        }
+        return response()->json(['success' => false, 'message' => 'Gagal cek saldo', 'response' => $balance]);
+    })->name('admin.digiflazz-test.balance');
+    
+    Route::get('/digiflazz-test/price-list', function() {
+        $digiflazzService = app(\App\Services\DigiflazzService::class);
+        $priceList = $digiflazzService->checkPrice();
+        if ($priceList && isset($priceList['data'])) {
+            return response()->json(['success' => true, 'message' => 'Price list berhasil diambil', 'data' => $priceList['data'], 'count' => count($priceList['data'])]);
+        }
+        return response()->json(['success' => false, 'message' => 'Gagal ambil price list', 'response' => $priceList]);
+    })->name('admin.digiflazz-test.price-list');
+    
+    Route::post('/digiflazz-test/topup', function(\Illuminate\Http\Request $request) {
+        $request->validate(['buyer_sku_code' => 'required|string', 'customer_no' => 'required|string']);
+        $digiflazzService = app(\App\Services\DigiflazzService::class);
+        $result = $digiflazzService->testTopUp($request->buyer_sku_code, $request->customer_no);
+        return response()->json($result);
+    })->name('admin.digiflazz-test.topup');
+    
+    Route::post('/digiflazz-test/status', function(\Illuminate\Http\Request $request) {
+        $request->validate(['ref_id' => 'required|string']);
+        $digiflazzService = app(\App\Services\DigiflazzService::class);
+        $result = $digiflazzService->testTransactionStatus($request->ref_id);
+        return response()->json($result);
+    })->name('admin.digiflazz-test.status');
+    
+    Route::get('/digiflazz-test/run-all', function() {
+        $digiflazzService = app(\App\Services\DigiflazzService::class);
+        $results = $digiflazzService->runTopUpTests();
+        return response()->json(['success' => true, 'message' => 'Semua test selesai dijalankan', 'results' => $results]);
+    })->name('admin.digiflazz-test.run-all');
+    
+    Route::get('/digiflazz-test/configuration', function() {
+        $digiflazzService = app(\App\Services\DigiflazzService::class);
+        $isConfigured = $digiflazzService->isConfigured();
+        $isWebhookConfigured = $digiflazzService->isWebhookConfigured();
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'is_configured' => $isConfigured,
+                'is_webhook_configured' => $isWebhookConfigured,
+                'message' => $isConfigured ? 'Digiflazz sudah dikonfigurasi' : 'Digiflazz belum dikonfigurasi'
+            ]
+        ]);
+    })->name('admin.digiflazz-test.configuration');
+    
+    Route::get('/digiflazz-test/debug-signature', function() {
+        $digiflazzService = app(\App\Services\DigiflazzService::class);
+        $debug = $digiflazzService->debugSignature();
+        return response()->json([
+            'success' => true,
+            'data' => $debug
+        ]);
+    })->name('admin.digiflazz-test.debug-signature');
     });
 });

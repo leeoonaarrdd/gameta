@@ -29,6 +29,14 @@ class TripayController extends Controller
     public function callback(Request $request)
     {
         try {
+            // Log all incoming callback data for debugging
+            Log::info('Tripay Callback: Received callback request', [
+                'headers' => $request->headers->all(),
+                'body' => $request->all(),
+                'raw_content' => $request->getContent(),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
 
             // Validate callback data
             $data = $request->all();
@@ -46,23 +54,73 @@ class TripayController extends Controller
             // Get raw JSON data for signature verification
             $rawJsonData = $request->getContent();
             
-            // Verify signature using raw JSON data (as per Tripay documentation)
-            if (!$this->tripayService->verifyCallbackWithRawJson($rawJsonData, $signature)) {
-                Log::error('Tripay Callback: Invalid signature', [
+            // Debug logging untuk signature verification
+            Log::info('Tripay Callback: Signature verification debug', [
+                'raw_json_data' => $rawJsonData,
+                'received_signature' => $signature,
+                'data_array' => $data
+            ]);
+            
+            // Try multiple signature verification methods
+            $signatureValid = false;
+            
+            // Method 1: Raw JSON signature (current method)
+            if ($this->tripayService->verifyCallbackWithRawJson($rawJsonData, $signature)) {
+                $signatureValid = true;
+                Log::info('Tripay Callback: Signature valid (raw JSON method)');
+            } else {
+                Log::warning('Tripay Callback: Raw JSON signature verification failed');
+                
+                // Method 2: Try with different JSON encoding (without spaces)
+                $compactJson = json_encode($data);
+                if ($this->tripayService->verifyCallbackWithRawJson($compactJson, $signature)) {
+                    $signatureValid = true;
+                    Log::info('Tripay Callback: Signature valid (compact JSON method)');
+                } else {
+                    Log::warning('Tripay Callback: Compact JSON signature verification failed');
+                }
+            }
+            
+            // If all signature verification methods fail
+            if (!$signatureValid) {
+                Log::error('Tripay Callback: All signature verification methods failed', [
                     'data' => $data,
-                    'signature' => $signature
+                    'signature' => $signature,
+                    'raw_json' => $rawJsonData
                 ]);
                 return response()->json(['success' => false, 'message' => 'Signature tidak valid'], 400);
             }
 
             // Validate required callback fields
-            $requiredFields = ['merchant_ref', 'amount', 'status', 'reference'];
+            $requiredFields = ['merchant_ref', 'status', 'reference'];
             foreach ($requiredFields as $field) {
-                if (!isset($data[$field]) || empty($data[$field])) {
+                if (!isset($data[$field])) {
                     Log::error('Tripay Callback: Missing required field: ' . $field, ['data' => $data]);
                     return response()->json(['success' => false, 'message' => 'Field ' . $field . ' tidak ditemukan'], 400);
                 }
             }
+            
+            // Handle amount field - Tripay sends total_amount or amount_received
+            $amount = null;
+            if (isset($data['total_amount'])) {
+                $amount = $data['total_amount'];
+            } elseif (isset($data['amount_received'])) {
+                $amount = $data['amount_received'];
+            } elseif (isset($data['amount'])) {
+                $amount = $data['amount'];
+            }
+            
+            if ($amount === null || !is_numeric($amount)) {
+                Log::error('Tripay Callback: Invalid or missing amount field', [
+                    'total_amount' => $data['total_amount'] ?? null,
+                    'amount_received' => $data['amount_received'] ?? null,
+                    'amount' => $data['amount'] ?? null
+                ]);
+                return response()->json(['success' => false, 'message' => 'Field amount tidak ditemukan atau tidak valid'], 400);
+            }
+            
+            // Add amount to data array for consistency
+            $data['amount'] = $amount;
 
             // Find purchase by merchant_ref (order_id)
             $purchase = Purchase::where('order_id', $data['merchant_ref'])->first();
@@ -375,71 +433,115 @@ class TripayController extends Controller
                 return;
             }
 
-            // Get player data from notes
+            // Reload purchase with product to ensure fresh data
+            $purchase = Purchase::with(['product.game', 'member'])
+                ->find($purchase->id);
+
+            // Get product details
+            $product = $purchase->product;
             $notes = json_decode($purchase->notes, true) ?? [];
-            $playerFields = $notes['player_fields'] ?? [];
-            
-            if (empty($playerFields)) {
-                Log::error('Digiflazz Top-up: Player data tidak ditemukan untuk order ' . $purchase->order_id);
+
+            // Validate product exists
+            if (!$product) {
+                Log::error('Digiflazz Top-up: Product not found for purchase', [
+                    'purchase_id' => $purchase->id,
+                    'product_id' => $purchase->product_id
+                ]);
                 return;
             }
 
-            // Get customer number (first player field)
-            $customerNo = $playerFields[0];
-            
-            // Get product SKU code
-            $buyerSkuCode = $purchase->product->sku ?? null;
-            
-            if (!$buyerSkuCode) {
-                Log::error('Digiflazz Top-up: SKU code tidak ditemukan untuk produk ' . $purchase->product->name);
+            // Validate SKU exists
+            if (empty($product->sku)) {
+                Log::error('Digiflazz Top-up: SKU code is empty for product', [
+                    'purchase_id' => $purchase->id,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'sku' => $product->sku
+                ]);
                 return;
             }
+
+            // Get customer number from player fields
+            $customerNo = $notes['player_fields'][0] ?? '08123456789'; // Default fallback
+            
+            // Special handling for Mobile Legends
+            if ($product->game && strtolower($product->game->name) === 'mobile legends') {
+                $userId = $notes['player_fields'][0] ?? '';
+                $serverId = $notes['player_fields'][1] ?? '';
+                
+                if (!empty($userId) && !empty($serverId)) {
+                    $customerNo = $userId . $serverId; // Combine User ID + Server ID
+                    Log::info('Mobile Legends customer number format (Tripay)', [
+                        'purchase_id' => $purchase->id,
+                        'user_id' => $userId,
+                        'server_id' => $serverId,
+                        'combined_customer_no' => $customerNo
+                    ]);
+                } else {
+                    Log::warning('Mobile Legends: Missing User ID or Server ID (Tripay)', [
+                        'purchase_id' => $purchase->id,
+                        'user_id' => $userId,
+                        'server_id' => $serverId
+                    ]);
+                }
+            }
+            
+            // Log player fields for debugging
+            Log::info('Player fields debug (Tripay)', [
+                'purchase_id' => $purchase->id,
+                'player_fields' => $notes['player_fields'] ?? [],
+                'customer_no_selected' => $customerNo,
+                'game_name' => $product->game->name ?? 'Unknown'
+            ]);
 
             // Generate ref_id for Digiflazz
-            $refId = 'REF' . time() . rand(100, 999);
+            $refId = 'TRIPAY_' . $purchase->order_id . '_' . time();
 
-            Log::info('Digiflazz Top-up: Processing top-up', [
+            Log::info('Digiflazz Top-up: Processing top-up (Tripay)', [
+                'purchase_id' => $purchase->id,
                 'order_id' => $purchase->order_id,
-                'buyer_sku_code' => $buyerSkuCode,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'sku' => $product->sku,
                 'customer_no' => $customerNo,
                 'ref_id' => $refId
             ]);
 
-            // Process top-up via Digiflazz
-            $result = $this->digiflazzService->topUp($buyerSkuCode, $customerNo, $refId);
+            // Process top-up via Digiflazz (production mode)
+            $result = $this->digiflazzService->topUpProduction($product->sku, $customerNo, $refId);
 
-            if ($result) {
+            if ($result && isset($result['data'])) {
                 // Update purchase with Digiflazz data
                 $digiflazzNotes = array_merge($notes, [
-                    'digiflazz_ref_id' => $refId,
-                    'digiflazz_status' => $result['status'] ?? 'pending',
-                    'digiflazz_message' => $result['message'] ?? '',
-                    'digiflazz_buyer_sku_code' => $buyerSkuCode,
-                    'digiflazz_customer_no' => $customerNo,
+                    'digiflazz_processed' => true,
+                    'digiflazz_ref_id' => $result['data']['ref_id'] ?? $refId,
+                    'digiflazz_status' => $result['data']['status'] ?? 'pending',
+                    'digiflazz_message' => $result['data']['message'] ?? '',
                     'digiflazz_processed_at' => now()->format('Y-m-d H:i:s')
                 ]);
 
                 $purchase->update([
-                    'digiflazz_ref_id' => $refId,
-                    'digiflazz_status' => $result['status'] ?? 'pending',
-                    'digiflazz_message' => $result['message'] ?? '',
-                    'digiflazz_buyer_sku_code' => $buyerSkuCode,
-                    'digiflazz_customer_no' => $customerNo,
                     'notes' => json_encode($digiflazzNotes)
                 ]);
 
-                Log::info('Digiflazz Top-up: Success', [
+                Log::info('Digiflazz Top-up: Success (Tripay)', [
+                    'purchase_id' => $purchase->id,
                     'order_id' => $purchase->order_id,
-                    'ref_id' => $refId,
-                    'status' => $result['status'] ?? 'pending',
-                    'message' => $result['message'] ?? ''
+                    'ref_id' => $result['data']['ref_id'] ?? $refId,
+                    'status' => $result['data']['status'] ?? 'pending',
+                    'message' => $result['data']['message'] ?? ''
                 ]);
             } else {
-                Log::error('Digiflazz Top-up: Failed for order ' . $purchase->order_id);
+                Log::error('Digiflazz Top-up: Failed (Tripay)', [
+                    'purchase_id' => $purchase->id,
+                    'order_id' => $purchase->order_id,
+                    'result' => $result
+                ]);
             }
 
         } catch (\Exception $e) {
-            Log::error('Digiflazz Top-up Error: ' . $e->getMessage(), [
+            Log::error('Digiflazz Top-up Error (Tripay): ' . $e->getMessage(), [
+                'purchase_id' => $purchase->id ?? 'unknown',
                 'order_id' => $purchase->order_id ?? 'unknown',
                 'trace' => $e->getTraceAsString()
             ]);

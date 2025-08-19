@@ -47,7 +47,7 @@
                     <div class="w-full sm:w-110">
                         @if($game->logo)
                             <div class="mb-2">
-                                <img src="{{ Storage::url($game->logo) }}" alt="Current Logo" class="w-32 h-20 object-contain">
+                                <img src="{{ asset('storage/' . $game->logo) }}" alt="Current Logo" class="w-32 h-20 object-contain">
                             </div>
                         @endif
                         <input 
@@ -67,7 +67,7 @@
                     <div class="w-full sm:w-110">
                         @if($game->gambar)
                             <div class="mb-2">
-                                <img src="{{ Storage::url($game->gambar) }}" alt="Current Gambar" class="w-32 h-48 object-cover rounded-lg">
+                                <img src="{{ asset('storage/' . $game->gambar) }}" alt="Current Gambar" class="w-32 h-48 object-cover rounded-lg">
                             </div>
                         @endif
                         <input 
@@ -87,7 +87,7 @@
                     <div class="w-full sm:w-110">
                         @if($game->banner)
                             <div class="mb-2">
-                                <img src="{{ Storage::url($game->banner) }}" alt="Current Banner" class="w-80 h-28 object-cover rounded-lg">
+                                <img src="{{ asset('storage/' . $game->banner) }}" alt="Current Banner" class="w-80 h-28 object-cover rounded-lg">
                             </div>
                         @endif
                         <input 

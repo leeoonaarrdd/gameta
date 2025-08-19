@@ -12,6 +12,7 @@ use App\Models\Configuration;
 use App\Models\Member;
 use App\Services\RapidApiService;
 use App\Services\TripayService;
+use App\Services\DigiflazzService;
 use App\Helpers\FonnteHelper;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -233,6 +234,37 @@ class CheckoutController extends Controller
             
             session(['pending_order' => $orderData]);
             
+            // Process to Digiflazz if product provider is Digiflazz
+            $digiflazzResult = null;
+            if ($purchase->product && $purchase->product->provider === 'Digiflazz') {
+                $digiflazzResult = $this->processToDigiflazz($purchase);
+                
+                if ($digiflazzResult && isset($digiflazzResult['success']) && $digiflazzResult['success']) {
+                    // Update purchase with Digiflazz data
+                    $purchase->update([
+                        'notes' => json_encode(array_merge(
+                            json_decode($purchase->notes, true) ?? [],
+                            [
+                                'digiflazz_processed' => true,
+                                'digiflazz_ref_id' => $digiflazzResult['ref_id'] ?? '',
+                                'digiflazz_status' => $digiflazzResult['status'] ?? '',
+                                'digiflazz_message' => $digiflazzResult['message'] ?? ''
+                            ]
+                        ))
+                    ]);
+                } else {
+                    // Digiflazz failed but payment completed
+                    $purchase->update([
+                        'notes' => json_encode(array_merge(
+                            json_decode($purchase->notes, true) ?? [],
+                            [
+                                'digiflazz_error' => $digiflazzResult && isset($digiflazzResult['message']) ? $digiflazzResult['message'] : 'Unknown error'
+                            ]
+                        ))
+                    ]);
+                }
+            }
+            
             // Kirim notifikasi WhatsApp jika Fonnte sudah dikonfigurasi
             if (FonnteHelper::isConfigured()) {
                 try {
@@ -240,6 +272,12 @@ class CheckoutController extends Controller
                         'total_amount' => $orderData['total'],
                         'payment_method' => $paymentMethod->name
                     ];
+                    
+                    // Add Digiflazz info to notification if available
+                    if ($digiflazzResult && isset($digiflazzResult['success']) && $digiflazzResult['success']) {
+                        $orderNotificationData['digiflazz_ref_id'] = $digiflazzResult['ref_id'] ?? '';
+                        $orderNotificationData['digiflazz_status'] = $digiflazzResult['status'] ?? '';
+                    }
                     
                     FonnteHelper::sendOrderNotification(
                         $orderData['order_id'],
@@ -254,12 +292,23 @@ class CheckoutController extends Controller
                 }
             }
             
+            // Prepare response message
+            $message = 'Pembayaran berhasil! Saldo telah dipotong.';
+            if ($digiflazzResult && isset($digiflazzResult['success'])) {
+                if ($digiflazzResult['success']) {
+                    $message .= ' Produk berhasil diproses ke Digiflazz.';
+                } else {
+                    $message .= ' Pembayaran berhasil tapi gagal diproses ke Digiflazz: ' . ($digiflazzResult['message'] ?? 'Unknown error');
+                }
+            }
+            
             return response()->json([
                 'success' => true,
-                'message' => 'Pembayaran berhasil! Saldo telah dipotong.',
+                'message' => $message,
                 'redirect_url' => route('checkout.payment', ['order_id' => $orderData['order_id']]),
                 'order_id' => $orderData['order_id'],
-                'payment_completed' => true
+                'payment_completed' => true,
+                'digiflazz_result' => $digiflazzResult
             ]);
         }
 
@@ -718,5 +767,342 @@ class CheckoutController extends Controller
             'success' => true,
             'data' => $purchase
         ]);
+    }
+
+    /**
+     * Process manual payment confirmation and send to Digiflazz
+     */
+    public function confirmManualPayment(Request $request, $order_id)
+    {
+        $request->validate([
+            'status' => 'required|in:completed,cancelled',
+            'notes' => 'nullable|string'
+        ]);
+
+        $purchase = Purchase::with(['product.game', 'member'])
+            ->where('order_id', $order_id)
+            ->first();
+
+        // Debug logging for purchase loading
+        Log::info('Debug: Purchase loaded for manual payment confirmation', [
+            'order_id' => $order_id,
+            'purchase_found' => $purchase ? 'YES' : 'NO',
+            'purchase_id' => $purchase ? $purchase->id : 'NULL',
+            'product_id' => $purchase ? $purchase->product_id : 'NULL',
+            'product_loaded' => $purchase && $purchase->product ? 'YES' : 'NO',
+            'product_name' => $purchase && $purchase->product ? $purchase->product->name : 'NULL',
+            'sku' => $purchase && $purchase->product ? $purchase->product->sku : 'NULL'
+        ]);
+
+        if (!$purchase) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pesanan tidak ditemukan'
+            ], 404);
+        }
+
+        // Check if payment is already processed
+        if ($purchase->status === 'completed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pesanan sudah diproses'
+            ], 400);
+        }
+
+        try {
+            if ($request->status === 'completed') {
+                // Update purchase status
+                $purchase->update([
+                    'status' => 'completed',
+                    'payment_status' => 'paid',
+                    'processed_at' => now(),
+                    'notes' => json_encode(array_merge(
+                        json_decode($purchase->notes, true) ?? [],
+                        [
+                            'manual_payment_confirmed_at' => now()->format('Y-m-d H:i:s'),
+                            'admin_notes' => $request->notes
+                        ]
+                    ))
+                ]);
+
+                // Process to Digiflazz if product provider is Digiflazz
+                if ($purchase->product && $purchase->product->provider === 'Digiflazz') {
+                    $digiflazzResult = $this->processToDigiflazz($purchase);
+                    
+                    if ($digiflazzResult['success']) {
+                        // Update purchase with Digiflazz data
+                        $purchase->update([
+                            'notes' => json_encode(array_merge(
+                                json_decode($purchase->notes, true) ?? [],
+                                [
+                                    'digiflazz_processed' => true,
+                                    'digiflazz_ref_id' => $digiflazzResult['ref_id'],
+                                    'digiflazz_status' => $digiflazzResult['status'],
+                                    'digiflazz_message' => $digiflazzResult['message']
+                                ]
+                            ))
+                        ]);
+
+                        // Send WhatsApp notification
+                        $this->sendSuccessNotification($purchase, $digiflazzResult);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Pembayaran dikonfirmasi dan produk berhasil diproses ke Digiflazz',
+                            'digiflazz_result' => $digiflazzResult
+                        ]);
+                    } else {
+                        // Digiflazz failed but payment confirmed
+                        $purchase->update([
+                            'notes' => json_encode(array_merge(
+                                json_decode($purchase->notes, true) ?? [],
+                                [
+                                    'digiflazz_error' => $digiflazzResult['message']
+                                ]
+                            ))
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Pembayaran dikonfirmasi tapi gagal diproses ke Digiflazz: ' . $digiflazzResult['message'],
+                            'digiflazz_result' => $digiflazzResult
+                        ], 500);
+                    }
+                } else {
+                    // Product is manual, no need to process to Digiflazz
+                    $this->sendSuccessNotification($purchase);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Pembayaran dikonfirmasi dan produk diproses secara manual'
+                    ]);
+                }
+            } else {
+                // Cancel payment
+                $purchase->update([
+                    'status' => 'cancelled',
+                    'payment_status' => 'failed',
+                    'notes' => json_encode(array_merge(
+                        json_decode($purchase->notes, true) ?? [],
+                        [
+                            'manual_payment_cancelled_at' => now()->format('Y-m-d H:i:s'),
+                            'admin_notes' => $request->notes
+                        ]
+                    ))
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Pembayaran dibatalkan'
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Manual payment confirmation failed', [
+                'order_id' => $order_id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memproses konfirmasi pembayaran: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Process purchase to Digiflazz
+     */
+    private function processToDigiflazz($purchase)
+    {
+        try {
+            $digiflazzService = app(DigiflazzService::class);
+
+            // Reload purchase with product to ensure fresh data
+            $purchase = Purchase::with(['product.game', 'member'])
+                ->find($purchase->id);
+
+            // Get product details
+            $product = $purchase->product;
+            $notes = json_decode($purchase->notes, true) ?? [];
+
+            // Debug logging
+            Log::info('Debug: Purchase and Product details', [
+                'purchase_id' => $purchase->id,
+                'product_id' => $purchase->product_id,
+                'product_loaded' => $product ? 'YES' : 'NO',
+                'product_name' => $product ? $product->name : 'NULL',
+                'sku' => $product ? $product->sku : 'NULL',
+                'provider' => $product ? $product->provider : 'NULL'
+            ]);
+
+            // Validate product exists
+            if (!$product) {
+                Log::error('Product not found for purchase', [
+                    'purchase_id' => $purchase->id,
+                    'product_id' => $purchase->product_id
+                ]);
+                return [
+                    'success' => false,
+                    'message' => 'Produk tidak ditemukan'
+                ];
+            }
+
+            // Validate SKU exists
+            if (empty($product->sku)) {
+                Log::error('SKU code is empty for product', [
+                    'purchase_id' => $purchase->id,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'sku' => $product->sku,
+                    'all_product_fields' => $product->toArray()
+                ]);
+                return [
+                    'success' => false,
+                    'message' => 'SKU Code produk tidak ditemukan atau kosong'
+                ];
+            }
+
+            // Get customer number from player fields
+            $customerNo = $notes['player_fields'][0] ?? '08123456789'; // Default fallback
+            
+            // Special handling for Mobile Legends
+            if ($product->game && strtolower($product->game->name) === 'mobile legends') {
+                $userId = $notes['player_fields'][0] ?? '';
+                $serverId = $notes['player_fields'][1] ?? '';
+                
+                if (!empty($userId) && !empty($serverId)) {
+                    $customerNo = $userId . $serverId; // Combine User ID + Server ID
+                    Log::info('Mobile Legends customer number format', [
+                        'purchase_id' => $purchase->id,
+                        'user_id' => $userId,
+                        'server_id' => $serverId,
+                        'combined_customer_no' => $customerNo
+                    ]);
+                } else {
+                    Log::warning('Mobile Legends: Missing User ID or Server ID', [
+                        'purchase_id' => $purchase->id,
+                        'user_id' => $userId,
+                        'server_id' => $serverId
+                    ]);
+                }
+            }
+            
+            // Log player fields for debugging
+            Log::info('Player fields debug', [
+                'purchase_id' => $purchase->id,
+                'player_fields' => $notes['player_fields'] ?? [],
+                'customer_no_selected' => $customerNo,
+                'game_name' => $product->game->name ?? 'Unknown'
+            ]);
+            
+            // Validate customer number format (should be phone number for most games, but not Mobile Legends)
+            if ($product->game && strtolower($product->game->name) !== 'mobile legends') {
+                if (!preg_match('/^08[0-9]{8,11}$/', $customerNo)) {
+                    Log::warning('Customer number format may be invalid', [
+                        'purchase_id' => $purchase->id,
+                        'customer_no' => $customerNo,
+                        'game_name' => $product->game->name ?? 'Unknown',
+                        'suggestion' => 'Customer number should be phone number format (08xxxxxxxxxx)'
+                    ]);
+                }
+            }
+
+            // Generate reference ID
+            $refId = 'MANUAL_' . $purchase->order_id . '_' . time();
+
+            // Log the request details
+            Log::info('Processing Digiflazz topup for manual payment', [
+                'purchase_id' => $purchase->id,
+                'order_id' => $purchase->order_id,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'sku' => $product->sku,
+                'customer_no' => $customerNo,
+                'ref_id' => $refId
+            ]);
+
+            // Process to Digiflazz (production mode)
+            $result = $digiflazzService->topUpProduction(
+                $product->sku,
+                $customerNo,
+                $refId
+            );
+
+            if ($result && isset($result['data'])) {
+                Log::info('Digiflazz topup successful', [
+                    'purchase_id' => $purchase->id,
+                    'ref_id' => $result['data']['ref_id'] ?? $refId,
+                    'status' => $result['data']['status'] ?? 'pending'
+                ]);
+
+                return [
+                    'success' => true,
+                    'ref_id' => $result['data']['ref_id'] ?? $refId,
+                    'status' => $result['data']['status'] ?? 'pending',
+                    'message' => $result['data']['message'] ?? 'Success'
+                ];
+            } else {
+                Log::error('Digiflazz topup failed', [
+                    'purchase_id' => $purchase->id,
+                    'result' => $result
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => 'Gagal memproses ke Digiflazz: ' . ($result['message'] ?? 'Unknown error')
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('Digiflazz processing failed', [
+                'purchase_id' => $purchase->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Send success notification
+     */
+    private function sendSuccessNotification($purchase, $digiflazzResult = null)
+    {
+        if (!FonnteHelper::isConfigured()) {
+            return;
+        }
+
+        try {
+            $notes = json_decode($purchase->notes, true) ?? [];
+            $whatsapp = $notes['whatsapp'] ?? null;
+
+            if ($whatsapp) {
+                $notificationData = [
+                    'order_id' => $purchase->order_id,
+                    'product_name' => $purchase->product->name ?? 'Unknown',
+                    'total_amount' => $purchase->total_amount,
+                    'status' => 'completed'
+                ];
+
+                if ($digiflazzResult) {
+                    $notificationData['digiflazz_ref_id'] = $digiflazzResult['ref_id'];
+                    $notificationData['digiflazz_status'] = $digiflazzResult['status'];
+                }
+
+                FonnteHelper::sendOrderNotification(
+                    $purchase->order_id,
+                    $whatsapp,
+                    $notificationData
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send success notification', [
+                'error' => $e->getMessage(),
+                'purchase_id' => $purchase->id
+            ]);
+        }
     }
 }

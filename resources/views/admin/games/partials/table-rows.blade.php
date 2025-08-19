@@ -3,7 +3,7 @@
     <td class="px-6 py-4">
         <div class="w-16">
             @if($game->gambar)
-                <img src="{{ Storage::url($game->gambar) }}" alt="{{ $game->name }}" class="w-full h-24 object-cover rounded-lg">
+                <img src="{{ asset('storage/' . $game->gambar) }}" alt="{{ $game->name }}" class="w-full h-24 object-cover rounded-lg">
             @else
                 <div class="w-full h-24 bg-gradient-to-b from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
                     <i class="fas fa-gamepad text-white text-2xl"></i>

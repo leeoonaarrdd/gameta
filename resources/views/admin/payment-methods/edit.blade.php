@@ -73,7 +73,7 @@ input[type="number"] {
                     <div class="w-full sm:w-110">
                         @if($paymentMethod->image)
                             <div class="mb-2">
-                                <img src="{{ Storage::url($paymentMethod->image) }}" alt="Current Image" class="w-32 h-20 object-contain">
+                                <img src="{{ asset('storage/' . $paymentMethod->image) }}" alt="Current Image" class="w-32 h-20 object-contain">
                             </div>
                         @endif
                         <input 

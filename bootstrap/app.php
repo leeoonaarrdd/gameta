@@ -16,6 +16,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'member' => \App\Http\Middleware\MemberMiddleware::class,
         ]);
+        
+        // Disable CSRF for callback routes
+        $middleware->validateCsrfTokens(except: [
+            'api/tripay/callback',
+            'api/digiflazz/callback',
+            'api/fonnte/webhook',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

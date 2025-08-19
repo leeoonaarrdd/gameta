@@ -6,7 +6,7 @@
     <td class="px-6 py-4">
         <div class="w-24 h-8">
             @if($paymentMethod->image)
-                <img src="{{ Storage::url($paymentMethod->image) }}" alt="{{ $paymentMethod->name }}" class="w-full h-full object-contain rounded-lg">
+                <img src="{{ asset('storage/' . $paymentMethod->image) }}" alt="{{ $paymentMethod->name }}" class="w-full h-full object-contain rounded-lg">
             @else
                 <div class="w-full h-full bg-gradient-to-b from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
                     <i class="fas fa-credit-card text-white text-sm"></i>

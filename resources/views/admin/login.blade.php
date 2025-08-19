@@ -192,7 +192,7 @@
                     @if(!empty($logo))
                         <img src="{{ asset('storage/' . $logo) }}" alt="Logo" class="w-48 h-12 object-contain mx-auto mb-4 animate-on-scroll-scale">
                     @else
-                        <h1 class="text-3xl font-bold text-white mb-2 animate-on-scroll">SEA GAME</h1>
+                        <h1 class="text-3xl font-bold text-white mb-2 animate-on-scroll">GAMETA</h1>
                     @endif
                     <p class="text-white mb-1 animate-on-scroll animate-on-scroll-delay-1">Selamat Datang <span class="text-purple-400">Admin!</span></p>
                     <p class="text-gray-400 animate-on-scroll animate-on-scroll-delay-2">Masukan username dan password kamu untuk masuk</p>
