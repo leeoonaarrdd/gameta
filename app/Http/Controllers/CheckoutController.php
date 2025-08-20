@@ -525,10 +525,6 @@ class CheckoutController extends Controller
      */
     private function getPlayerNickname($game, $playerFields)
     {
-        // Temporarily disabled to save RapidAPI limit during testing
-        // Uncomment the code below when ready to use RapidAPI
-        
-        /*
         try {
             if (empty($playerFields)) {
                 return 'Unknown';
@@ -544,14 +540,6 @@ class CheckoutController extends Controller
         } catch (\Exception $e) {
             return 'Gagal dicek';
         }
-        */
-        
-        // Return first player field as nickname for testing
-        if (!empty($playerFields)) {
-            return $playerFields[0] ?? 'Unknown';
-        }
-        
-        return 'Unknown';
     }
 
     /**
@@ -567,11 +555,6 @@ class CheckoutController extends Controller
 
         $game = Game::findOrFail($request->game_id);
         $playerFields = $request->player_fields;
-
-        // Temporarily disabled to save RapidAPI limit during testing
-        // Uncomment the code below when ready to use RapidAPI
-        
-        /*
         try {
             // Use RapidAPI service to check nickname
             $result = $this->rapidApiService->checkGameNickname($game->name, $playerFields);
@@ -585,14 +568,6 @@ class CheckoutController extends Controller
                 'message' => 'Gagal mengecek nickname: ' . $e->getMessage()
             ], 500);
         }
-        */
-        
-        // Return mock response for testing
-        return response()->json([
-            'success' => true,
-            'nickname' => $playerFields[0] ?? 'Unknown',
-            'message' => 'Nickname checked successfully (Testing Mode)'
-        ]);
     }
 
     /**

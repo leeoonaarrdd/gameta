@@ -226,7 +226,7 @@
                                 <i class="fas fa-key text-gray-400"></i>
                             </div>
                             <input 
-                                type="text" 
+                                type="password" 
                                 id="tripay_api_key" 
                                 name="tripay_api_key" 
                                 value="{{ old('tripay_api_key', $config['tripay_api_key'] ?? '') }}"
@@ -244,7 +244,7 @@
                                 <i class="fas fa-lock text-gray-400"></i>
                             </div>
                             <input 
-                                type="text" 
+                                type="password" 
                                 id="tripay_private_key" 
                                 name="tripay_private_key" 
                                 value="{{ old('tripay_private_key', $config['tripay_private_key'] ?? '') }}"
@@ -262,7 +262,7 @@
                                 <i class="fas fa-store text-gray-400"></i>
                             </div>
                             <input 
-                                type="text" 
+                                type="password" 
                                 id="tripay_merchant_code" 
                                 name="tripay_merchant_code" 
                                 value="{{ old('tripay_merchant_code', $config['tripay_merchant_code'] ?? '') }}"

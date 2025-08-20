@@ -1,4 +1,47 @@
 // Targets JavaScript
+
+// Global functions untuk diakses dari HTML
+window.removeField = function(button) {
+    // Cari container field yang tepat - bisa field yang sudah ada atau yang baru ditambahkan
+    const field = button.closest('div.bg-gray-800\\/30');
+    
+    if (field) {
+        field.remove();
+    } else {
+        // Fallback: cari parent element yang memiliki class yang sesuai
+        let current = button.parentElement;
+        while (current && current !== document.body) {
+            if (current.classList.contains('bg-gray-800') || 
+                current.classList.contains('bg-gray-800/30') ||
+                current.className.includes('bg-gray-800')) {
+                current.remove();
+                break;
+            }
+            current = current.parentElement;
+        }
+    }
+};
+
+window.moveField = function(button, direction) {
+    const field = button.closest('div.bg-gray-800\\/30');
+    const formFields = document.getElementById('form-fields');
+    const actionButtons = document.getElementById('action-buttons');
+    
+    if (!field) return;
+    
+    if (direction === 'up') {
+        const prevField = field.previousElementSibling;
+        if (prevField && prevField.id !== 'action-buttons') {
+            formFields.insertBefore(field, prevField);
+        }
+    } else if (direction === 'down') {
+        const nextField = field.nextElementSibling;
+        if (nextField && nextField.id !== 'action-buttons') {
+            formFields.insertBefore(nextField, field);
+        }
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     let fieldCounter = 0;
     let modalRowCounter = 0;
@@ -23,40 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load existing fields for edit page
     loadExistingFields();
     
-    // Helper function to find the option field container
-    function findOptionFieldContainer(button) {
-        // Coba cari dengan berbagai selector
-        const selectors = [
-            '.bg-gray-800\\/30',
-            'div[class*="bg-gray-800"]',
-            '.flex-col',
-            '.items-start',
-            'div[class*="flex-col"]',
-            'div[class*="items-center"]'
-        ];
-        
-        for (let selector of selectors) {
-            const container = button.closest(selector);
-            if (container) {
-                const hasPilihanInput = container.querySelector('input[name*="[pilihan]"]');
-                if (hasPilihanInput) {
-                    return container;
-                }
-            }
-        }
-        
-        // Jika tidak ditemukan, cari secara manual
-        let current = button.parentElement;
-        while (current && current !== document.body) {
-            const hasPilihanInput = current.querySelector('input[name*="[pilihan]"]');
-            if (hasPilihanInput) {
-                return current;
-            }
-            current = current.parentElement;
-        }
-        
-        return null;
-    }
+
     
     // Modal handlers
     const modalPilihan = document.getElementById('modal-pilihan');
@@ -248,33 +258,33 @@ document.addEventListener('DOMContentLoaded', function() {
         const actionButtons = document.getElementById('action-buttons');
         
         const newField = document.createElement('div');
-        newField.className = 'flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 bg-gray-800/30 rounded-lg p-3 sm:p-4 border border-gray-700/30';
+        newField.className = 'flex items-center gap-4 bg-gray-800/30 rounded-lg p-4 border border-gray-700/30';
         newField.innerHTML = `
-            <div class="flex flex-row sm:flex-col gap-1 order-1 sm:order-1">
-                <button type="button" class="text-gray-400 hover:text-white transition-colors duration-200 p-1 move-up-btn">
+            <div class="flex flex-col gap-1">
+                <button type="button" class="text-gray-400 hover:text-white transition-colors duration-200" onclick="moveField(this, 'up')">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
                     </svg>
                 </button>
-                <button type="button" class="text-gray-400 hover:text-white transition-colors duration-200 p-1 move-down-btn">
+                <button type="button" class="text-gray-400 hover:text-white transition-colors duration-200" onclick="moveField(this, 'down')">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
                 </button>
             </div>
-            <div class="flex-1 w-full sm:w-auto order-2 sm:order-2">
+            <div class="flex-1">
                 <input 
                     type="text" 
                     name="input_fields[${fieldCounter}][judul_kolom]" 
                     placeholder="Judul Kolom"
-                    class="w-full bg-gray-800/50 border border-gray-600/30 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400/60 text-sm sm:text-base"
+                    class="w-full bg-gray-800/50 border border-gray-600/30 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400/60"
                     required
                 >
             </div>
-            <div class="w-full sm:w-48 order-3 sm:order-3">
+            <div class="w-32">
                 <select 
                     name="input_fields[${fieldCounter}][validasi]" 
-                    class="w-full bg-gray-800/50 border border-gray-600/30 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400/60 text-sm sm:text-base"
+                    class="w-full bg-gray-800/50 border border-gray-600/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400/60"
                 >
                     <option value="teks" class="bg-gray-800 text-white">Teks</option>
                     <option value="angka" class="bg-gray-800 text-white">Angka</option>
@@ -282,7 +292,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <option value="password" class="bg-gray-800 text-white">Password</option>
                 </select>
             </div>
-            <button type="button" class="bg-red-500 hover:bg-red-600 text-white p-2 sm:p-3 rounded-lg transition-colors duration-200 order-4 sm:order-4 w-full sm:w-auto flex justify-center remove-field-btn">
+            <button type="button" class="bg-red-500 hover:bg-red-600 text-white p-3 rounded-lg transition-colors duration-200" onclick="removeField(this)">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                 </svg>
@@ -291,29 +301,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Masukkan field baru setelah tombol action
         actionButtons.parentNode.insertBefore(newField, actionButtons.nextSibling);
-        
-        // Add event listeners
-        const moveUpBtn = newField.querySelector('.move-up-btn');
-        const moveDownBtn = newField.querySelector('.move-down-btn');
-        const removeBtn = newField.querySelector('.remove-field-btn');
-        
-        if (moveUpBtn) {
-            moveUpBtn.addEventListener('click', function() {
-                moveField(this, 'up');
-            });
-        }
-        
-        if (moveDownBtn) {
-            moveDownBtn.addEventListener('click', function() {
-                moveField(this, 'down');
-            });
-        }
-        
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                removeField(this);
-            });
-        }
     }
     
     function addOptionField() {
@@ -322,26 +309,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const actionButtons = document.getElementById('action-buttons');
         
         const newField = document.createElement('div');
-        newField.className = 'flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 bg-gray-800/30 rounded-lg p-3 sm:p-4 border border-gray-700/30';
+        newField.className = 'flex items-center gap-4 bg-gray-800/30 rounded-lg p-4 border border-gray-700/30';
         newField.innerHTML = `
-            <div class="flex flex-row sm:flex-col gap-1 order-1 sm:order-1">
-                <button type="button" class="text-gray-400 hover:text-white transition-colors duration-200 p-1 move-up-btn">
+            <div class="flex flex-col gap-1">
+                <button type="button" class="text-gray-400 hover:text-white transition-colors duration-200" onclick="moveField(this, 'up')">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
                     </svg>
                 </button>
-                <button type="button" class="text-gray-400 hover:text-white transition-colors duration-200 p-1 move-down-btn">
+                <button type="button" class="text-gray-400 hover:text-white transition-colors duration-200" onclick="moveField(this, 'down')">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
                 </button>
             </div>
-            <div class="flex-1 w-full sm:w-110 order-2 sm:order-2">
+            <div class="w-110">
                 <input 
                     type="text" 
                     name="option_fields[${fieldCounter}][pilihan]" 
                     placeholder="Judul Kolom"
-                    class="w-full bg-gray-800/50 border border-gray-600/30 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400/60 text-sm sm:text-base"
+                    class="w-full bg-gray-800/50 border border-gray-600/30 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400/60"
                     required
                 >
                 <input 
@@ -350,58 +337,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     value=""
                 >
             </div>
-            <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 order-3 sm:order-3 w-full sm:w-auto">
-                <button type="button" class="bg-gradient-to-r from-purple-500 to-purple-400 hover:from-purple-600 hover:to-purple-500 text-white px-3 sm:px-4 py-2 rounded-full font-medium transition-all duration-200 text-sm sm:text-base w-full sm:w-auto open-modal-btn">
-                    Pilihan
-                </button>
-                <button type="button" class="bg-red-500 hover:bg-red-600 text-white p-2 sm:p-3 rounded-lg transition-colors duration-200 w-full sm:w-auto flex justify-center remove-field-btn">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                    </svg>
-                </button>
-            </div>
+            <button type="button" class="bg-gradient-to-r from-purple-500 to-purple-400 hover:from-purple-600 hover:to-purple-500 text-white px-4 py-2 rounded-full font-medium transition-all duration-200" onclick="openModal(this.closest('.flex.items-center.gap-4'))">
+                Pilihan
+            </button>
+            <button type="button" class="bg-red-500 hover:bg-red-600 text-white p-3 rounded-lg transition-colors duration-200" onclick="removeField(this)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+            </button>
         `;
         
         // Masukkan field baru setelah tombol action
         actionButtons.parentNode.insertBefore(newField, actionButtons.nextSibling);
-        
-        // Add event listeners
-        const moveUpBtn = newField.querySelector('.move-up-btn');
-        const moveDownBtn = newField.querySelector('.move-down-btn');
-        const removeBtn = newField.querySelector('.remove-field-btn');
-        const openModalBtn = newField.querySelector('.open-modal-btn');
-        
-        if (moveUpBtn) {
-            moveUpBtn.addEventListener('click', function() {
-                moveField(this, 'up');
-            });
-        }
-        
-        if (moveDownBtn) {
-            moveDownBtn.addEventListener('click', function() {
-                moveField(this, 'down');
-            });
-        }
-        
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                removeField(this);
-            });
-        }
-        
-        if (openModalBtn) {
-            openModalBtn.addEventListener('click', function() {
-                
-                // Gunakan fungsi helper untuk mencari container
-                const optionField = findOptionFieldContainer(this);
-                
-                if (optionField) {
-                    openModal(optionField);
-                } else {
-                    console.error('Could not find optionField');
-                }
-            });
-        }
     }
     
     // Load existing fields for edit page
@@ -416,38 +363,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Fungsi untuk menghapus field
-    function removeField(button) {
-        const field = button.closest('.flex-col, .items-start, div[class*="flex-col"], div[class*="items-center"]');
-        if (field) {
-            field.remove();
-        }
-    }
 
-    // Fungsi untuk memindahkan field (up/down)
-    function moveField(button, direction) {
-        const field = button.closest('[class*="flex-col"], [class*="items-center"]');
-        const formFields = document.getElementById('form-fields');
-        const actionButtons = document.getElementById('action-buttons');
-        
-        if (direction === 'up') {
-            const prevField = field.previousElementSibling;
-            if (prevField && prevField.id !== 'action-buttons') {
-                formFields.insertBefore(field, prevField);
-            }
-        } else if (direction === 'down') {
-            const nextField = field.nextElementSibling;
-            if (nextField && nextField.id !== 'action-buttons') {
-                formFields.insertBefore(nextField, field);
-            }
-        }
-    }
+
+
 
     // Fungsi untuk menghapus row di modal
     function removeModalRow(button) {
-        const row = button.closest('.flex-col, .items-start, div[class*="flex-col"], div[class*="items-center"]');
+        const row = button.closest('.flex.flex-col.sm\\:flex-row');
         if (row) {
             row.remove();
+        } else {
+            // Fallback: cari parent element yang memiliki class yang sesuai
+            let current = button.parentElement;
+            while (current && current !== document.body) {
+                if (current.classList.contains('flex') && 
+                    (current.classList.contains('flex-col') || current.className.includes('flex-col'))) {
+                    current.remove();
+                    break;
+                }
+                current = current.parentElement;
+            }
         }
     }
 });
