@@ -115,29 +115,60 @@ class AdminGlobal {
     }
 
     performDelete(url) {
-        // Kirim request DELETE menggunakan fetch
+        // Tentukan method berdasarkan URL
+        let method = 'DELETE';
+        let body = null;
+        
+        // Jika URL mengandung toggle-status, gunakan PUT
+        if (url.includes('toggle-status')) {
+            method = 'PUT';
+            body = JSON.stringify({ status: 'toggle' });
+        }
+        
+        // Kirim request menggunakan fetch
         fetch(url, {
-            method: 'DELETE',
+            method: method,
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            }
+            },
+            body: body
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 // Show success notification
-                this.showNotification(data.message, 'success');
+                this.showNotification(data.message || 'Operasi berhasil', 'success');
                 
                 // Reload page or data
                 if (typeof window.loadAdmins === 'function') {
                     window.loadAdmins(); // For admin pages with AJAX
+                } else if (typeof window.loadMembers === 'function') {
+                    window.loadMembers(); // For member pages with AJAX
+                } else if (typeof window.loadCategories === 'function') {
+                    window.loadCategories(); // For category pages with AJAX
+                } else if (typeof window.loadTargets === 'function') {
+                    window.loadTargets(); // For target pages with AJAX
+                } else if (typeof window.loadProducts === 'function') {
+                    window.loadProducts(); // For product pages with AJAX
+                } else if (typeof window.loadGames === 'function') {
+                    window.loadGames(); // For game pages with AJAX
+                } else if (typeof window.loadTopups === 'function') {
+                    window.loadTopups(); // For topup pages with AJAX
+                } else if (typeof window.loadPurchases === 'function') {
+                    window.loadPurchases(); // For purchase pages with AJAX
+                } else if (typeof window.loadPaymentMethods === 'function') {
+                    window.loadPaymentMethods(); // For payment method pages with AJAX
+                } else if (typeof window.loadSocialMedia === 'function') {
+                    window.loadSocialMedia(); // For social media pages with AJAX
+                } else if (typeof window.loadFaqs === 'function') {
+                    window.loadFaqs(); // For FAQ pages with AJAX
                 } else {
                     window.location.reload(); // For other pages
                 }
             } else {
-                this.showNotification('Gagal menghapus: ' + data.message, 'error');
+                this.showNotification('Gagal melakukan operasi: ' + (data.message || 'Terjadi kesalahan'), 'error');
             }
         })
         .catch(error => {
@@ -148,20 +179,41 @@ class AdminGlobal {
 
     // Method untuk menampilkan notifikasi
     showNotification(message, type = 'success') {
+        // Create notification element
         const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
-            type === 'success' ? 'bg-green-500 text-white' : 
-            type === 'error' ? 'bg-red-500 text-white' : 
-            type === 'warning' ? 'bg-yellow-500 text-white' : 
-            'bg-blue-500 text-white'
-        }`;
+        notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg text-white font-medium transition-all duration-300 transform translate-x-full`;
+        
+        // Set background color based on type
+        switch (type) {
+            case 'success':
+                notification.className += ' bg-green-500';
+                break;
+            case 'error':
+                notification.className += ' bg-red-500';
+                break;
+            case 'warning':
+                notification.className += ' bg-yellow-500';
+                break;
+            default:
+                notification.className += ' bg-blue-500';
+        }
+        
         notification.textContent = message;
-
+        
+        // Add to page
         document.body.appendChild(notification);
-
-        // Hapus notifikasi setelah 3 detik
+        
+        // Animate in
         setTimeout(() => {
-            notification.remove();
+            notification.classList.remove('translate-x-full');
+        }, 100);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
         }, 3000);
     }
 }

@@ -219,10 +219,26 @@ const MemberPage = {
         const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
         const action = newStatus === 'active' ? 'mengaktifkan' : 'menonaktifkan';
         
+        // Gunakan modal konfirmasi dari admin-global.js
+        if (window.adminGlobal) {
+            // Buat tombol sementara untuk menggunakan modal konfirmasi
+            const tempButton = document.createElement('button');
+            tempButton.className = 'btn-delete';
+            tempButton.setAttribute('data-url', `/admin/members/${memberId}/toggle-status`);
+            tempButton.setAttribute('data-item-name', `member`);
+            tempButton.setAttribute('data-message', `Apakah Anda yakin ingin ${action} member ini?`);
+            
+            // Trigger modal konfirmasi
+            window.adminGlobal.showDeleteModal(tempButton);
+            return;
+        }
+        
+        // Fallback jika admin-global.js tidak tersedia
         if (!confirm(`Apakah Anda yakin ingin ${action} member ini?`)) {
             return;
         }
         
+        // Jika admin-global.js tidak tersedia, gunakan request langsung
         try {
             const response = await fetch(`/admin/members/${memberId}/toggle-status`, {
                 method: 'PUT',
@@ -260,43 +276,8 @@ const MemberPage = {
     },
 
     async deleteMember(memberId) {
-        if (!confirm('Apakah Anda yakin ingin menghapus member ini? Tindakan ini tidak dapat dibatalkan.')) {
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/admin/members/${memberId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.showNotification('Member berhasil dihapus', 'success');
-                setTimeout(() => {
-                    if (typeof loadMembers === 'function') {
-                        loadMembers();
-                    } else {
-                        window.location.reload();
-                    }
-                }, 1000);
-            } else {
-                this.showNotification(result.message || 'Gagal menghapus member', 'error');
-            }
-        } catch (error) {
-            console.error('Error deleting member:', error);
-            this.showNotification('Gagal menghapus member', 'error');
-        }
+        // Fungsi ini tidak lagi digunakan karena menggunakan modal konfirmasi dari admin-global.js
+        // Tombol delete sekarang menggunakan class btn-delete yang di-handle oleh admin-global.js
     },
     
     showNotification(message, type = 'info') {

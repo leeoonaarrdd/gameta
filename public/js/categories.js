@@ -50,64 +50,8 @@ window.CategoryManager = {
      * @param {number} categoryId - The ID of the category to delete
      */
     deleteCategory: function(categoryId) {
-        if (!confirm('Apakah Anda yakin ingin menghapus kategori ini?')) {
-            return;
-        }
-        
-        // Get CSRF token safely
-        const csrfToken = this.getCsrfToken();
-        
-        if (!csrfToken) {
-            if (typeof CategoryPage !== 'undefined' && CategoryPage.showNotification) {
-                CategoryPage.showNotification('CSRF token tidak ditemukan. Silakan refresh halaman dan coba lagi.', 'error');
-            } else {
-                alert('CSRF token tidak ditemukan. Silakan refresh halaman dan coba lagi.');
-            }
-            return;
-        }
-        
-        fetch(`/admin/categories/${categoryId}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                // Show success notification
-                if (typeof CategoryPage !== 'undefined' && CategoryPage.showNotification) {
-                    CategoryPage.showNotification(data.message, 'success');
-                } else {
-                    alert(data.message);
-                }
-                if (typeof loadCategories === 'function') {
-                    loadCategories();
-                } else {
-                    window.location.reload();
-                }
-            } else {
-                if (typeof CategoryPage !== 'undefined' && CategoryPage.showNotification) {
-                    CategoryPage.showNotification(data.message || 'Terjadi kesalahan saat menghapus kategori', 'error');
-                } else {
-                    alert(data.message || 'Terjadi kesalahan saat menghapus kategori');
-                }
-            }
-        })
-        .catch(error => {
-            if (typeof CategoryPage !== 'undefined' && CategoryPage.showNotification) {
-                CategoryPage.showNotification('Terjadi kesalahan saat menghapus kategori. Silakan coba lagi.', 'error');
-            } else {
-                alert('Terjadi kesalahan saat menghapus kategori. Silakan coba lagi.');
-            }
-        });
+        // Fungsi ini tidak lagi digunakan karena menggunakan modal konfirmasi dari admin-global.js
+        // Tombol delete sekarang menggunakan class btn-delete yang di-handle oleh admin-global.js
     },
 
     /**

@@ -35,7 +35,7 @@
                 </button>
                 <button 
                     onclick="updateProductPrices()" 
-                    class="bg-gradient-to-r from-green-500 to-green-400 hover:from-green-600 hover:to-green-500 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 flex items-center gap-2"
+                    class="bg-gradient-to-r from-purple-500 to-purple-400 hover:from-purple-600 hover:to-purple-500 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 flex items-center gap-2"
                 >
                     Update Harga
                 </button>
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     });
     
-    function loadProducts() {
+    window.loadProducts = function() {
         const entries = entriesSelect.value;
         const search = searchInput.value;
         
@@ -172,8 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
 
                 
-                // Reinitialize delete buttons
-                initializeDeleteButtons();
+                // Delete buttons are automatically handled by admin-global.js
             } else {
                 tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-400">Gagal memuat data</td></tr>';
             }
@@ -185,42 +184,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function initializeDeleteButtons() {
-        // Reinitialize delete buttons after content update
-        document.querySelectorAll('.btn-delete').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const url = this.getAttribute('data-url');
-                const itemName = this.getAttribute('data-item-name');
-                const message = this.getAttribute('data-message');
-                
-                if (confirm(message)) {
-                    fetch(url, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            loadProducts(); // Reload data after successful deletion
-                        } else {
-                            alert('Gagal menghapus ' + itemName + ': ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Terjadi kesalahan saat menghapus ' + itemName);
-                    });
-                }
-            });
-        });
+        // Delete buttons are now handled by admin-global.js
+        // No need to add event listeners here as admin-global.js handles all .btn-delete elements
     }
     
-    // Initialize delete buttons on page load
-    initializeDeleteButtons();
+    // Delete buttons are now handled by admin-global.js automatically
     
     // Handle pagination clicks with event delegation
     document.addEventListener('click', function(e) {
@@ -253,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         paginationContainer.innerHTML = data.pagination;
                     }
 
-                    initializeDeleteButtons();
+                    // Delete buttons are automatically handled by admin-global.js
                 }
             })
             .catch(error => {

@@ -288,42 +288,7 @@
     </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="fixed inset-0 z-50 overflow-y-auto hidden">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <!-- Background overlay -->
-        <div id="deleteModalBackground" class="fixed inset-0 bg-gray-900/75 backdrop-blur-sm"></div>
-        
-        <!-- Modal panel -->
-        <div class="relative inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-gradient-to-r from-gray-950 via-gray-900 to-gray-950 backdrop-blur-sm border border-gray-700/30 rounded-2xl shadow-xl">
-            <!-- Modal header -->
-            <div class="mb-6">
-                <h3 class="text-lg font-semibold text-white">Konfirmasi Hapus</h3>
-            </div>
-            
-            <!-- Modal body -->
-            <div class="mb-6">
-                <p class="text-gray-300">Apakah Anda yakin ingin menghapus topup ini? Tindakan ini tidak dapat dibatalkan.</p>
-            </div>
-            
-            <!-- Modal footer -->
-            <div class="flex justify-end gap-3">
-                <button 
-                    id="deleteModalCancelBtn"
-                    class="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200 cursor-pointer"
-                >
-                    Batal
-                </button>
-                <button 
-                    id="deleteModalConfirmBtn"
-                    class="bg-gradient-to-r from-red-500 to-red-400 hover:from-red-600 hover:to-red-500 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer"
-                >
-                    Hapus
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Delete confirmation is now handled by admin-global.js -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const entriesSelect = document.getElementById('entriesSelect');
@@ -372,8 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     paginationContainer.innerHTML = data.pagination;
                 }
                 
-                // Reinitialize delete buttons
-                initializeDeleteButtons();
+                // Delete buttons are automatically handled by admin-global.js
             } else {
                 tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-400">Gagal memuat data</td></tr>';
             }
@@ -385,46 +349,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function initializeDeleteButtons() {
-        // Reinitialize delete buttons after content update
-        document.querySelectorAll('.btn-delete').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const url = this.getAttribute('data-url');
-                const itemName = this.getAttribute('data-item-name');
-                const message = this.getAttribute('data-message');
-                
-                if (confirm(message)) {
-                    fetch(url, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Show success notification
-                            alert(data.message || 'Topup berhasil dihapus');
-                            setTimeout(() => {
-                                loadTopups(); // Reload data after successful deletion
-                            }, 1000);
-                        } else {
-                            alert('Gagal menghapus ' + itemName + ': ' + (data.message || 'Terjadi kesalahan'));
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Terjadi kesalahan saat menghapus ' + itemName);
-                    });
-                }
-            });
-        });
+        // Delete buttons are now handled by admin-global.js
+        // No need to add event listeners here as admin-global.js handles all .btn-delete elements
     }
     
-    // Initialize delete buttons on page load
-    initializeDeleteButtons();
+    // Delete buttons are now handled by admin-global.js automatically
     
     // Handle pagination clicks with event delegation
     document.addEventListener('click', function(e) {
@@ -456,7 +385,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (paginationContainer) {
                         paginationContainer.innerHTML = data.pagination;
                     }
-                    initializeDeleteButtons();
+                    // Delete buttons are automatically handled by admin-global.js
                 }
             })
             .catch(error => {

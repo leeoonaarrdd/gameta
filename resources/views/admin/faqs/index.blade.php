@@ -151,8 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     paginationContainer.innerHTML = data.pagination;
                 }
                 
-                // Reinitialize delete buttons
-                initializeDeleteButtons();
+                // Delete buttons are automatically handled by admin-global.js
             } else {
                 tableBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-red-400">Gagal memuat data</td></tr>';
             }
@@ -164,46 +163,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function initializeDeleteButtons() {
-        // Reinitialize delete buttons after content update
-        document.querySelectorAll('.btn-delete').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const url = this.getAttribute('data-url');
-                const itemName = this.getAttribute('data-item-name');
-                const message = this.getAttribute('data-message');
-                
-                if (confirm(message)) {
-                    fetch(url, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Show success notification
-                            alert(data.message || 'Pertanyaan umum berhasil dihapus');
-                            setTimeout(() => {
-                                loadFaqs(); // Reload data after successful deletion
-                            }, 1000);
-                        } else {
-                            alert('Gagal menghapus ' + itemName + ': ' + (data.message || 'Terjadi kesalahan'));
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Terjadi kesalahan saat menghapus ' + itemName);
-                    });
-                }
-            });
-        });
+        // Delete buttons are now handled by admin-global.js
+        // No need to add event listeners here as admin-global.js handles all .btn-delete elements
     }
     
-    // Initialize delete buttons on page load
-    initializeDeleteButtons();
+    // Delete buttons are now handled by admin-global.js automatically
     
     // Handle pagination clicks with event delegation
     document.addEventListener('click', function(e) {
@@ -235,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (paginationContainer) {
                         paginationContainer.innerHTML = data.pagination;
                     }
-                    initializeDeleteButtons();
+                    // Delete buttons are automatically handled by admin-global.js
                 }
             })
             .catch(error => {
