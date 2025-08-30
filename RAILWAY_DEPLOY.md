@@ -58,6 +58,14 @@ DB_PASSWORD=your-password
 
 ## 🔧 Troubleshooting
 
+### Error: "Healthcheck failure"
+```bash
+# 1. Cek environment variables di Railway
+# 2. Pastikan APP_KEY sudah diset
+# 3. Cek database connection
+# 4. Lihat logs di Railway dashboard
+```
+
 ### Error: "No application keys set"
 ```bash
 # Generate APP_KEY
@@ -75,6 +83,19 @@ php artisan key:generate
 # Di local, jalankan:
 php artisan storage:link
 # Commit dan push ke GitHub
+```
+
+### Error: Port binding
+```bash
+# Pastikan startCommand menggunakan $PORT
+# php artisan serve --host=0.0.0.0 --port=$PORT
+```
+
+### Error: Build failed
+```bash
+# 1. Cek composer.json dependencies
+# 2. Pastikan PHP version compatible
+# 3. Cek nixpacks.toml configuration
 ```
 
 ## 📱 Fitur Railway
